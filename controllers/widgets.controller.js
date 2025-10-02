@@ -4,10 +4,11 @@ const { to, ReE, ReS } = require('../global-functions');
 const router = require('express').Router({ mergeParams: true });
 
 const getAllWidgets = async function (req, res) {
-    console.log("function called")
-    let [getWidgetsErr, widgets] = await to(Widgets.find().limit(10).sort({ name: 1 }));
+    const searchText = req?.query?.searchText ? req?.query?.searchText : null;
+    const whereClause = searchText ? { $or: [{ name: { $regex: searchText, $options: "i" } }, { description: { $regex: searchText, $options: "i" } }] } : {};
+    let [getWidgetsErr, widgets] = await to(Widgets.find(whereClause).limit(10).sort({ name: 1 }));
     if (getWidgetsErr) {
-        return ReE(res, { message: "Failed to fetch widgets", error: getWidgetsErr }, 422);
+        return ReE(res, { message: "Failed to fetch widgets", error: getWidgetsErr.message }, 422);
     } else if (widgets) {
         return ReS(res, { message: "Widgets fetched successfully", widgets }, 200);
     }
@@ -25,7 +26,7 @@ const createWidget = async function (req, res) {
                 let [cmpCreateErr, createdComponents] = await to(Components.insertMany(newComponents));
                 if (cmpCreateErr) {
                     console.log("error in creating components", cmpCreateErr);
-                    return ReE(res, { message: "Error while creating Components", error: cmpCreateErr });
+                    return ReE(res, { message: "Error while creating Components", error: cmpCreateErr.message }, 422);
                 } else if (createdComponents) {
                     componentIds = [...componentIds, ...(createdComponents.map((newComp) => newComp && newComp._id))];
                 }
@@ -62,7 +63,7 @@ const updateWidget = async function (req, res) {
             let [cmpCreateErr, createdComponents] = await to(Components.insertMany(newComponents));
             if (cmpCreateErr) {
                 console.log("error in creating components", cmpCreateErr);
-                return ReE(res, { message: "Error while creating Components", error: cmpCreateErr });
+                return ReE(res, { message: "Error while creating Components", error: cmpCreateErr.message });
             } else if (createdComponents) {
                 componentIds = [...componentIds, ...(createdComponents.map((newComp) => newComp && newComp._id))];
                 console.log("Component ids after creation", componentIds);
@@ -74,7 +75,7 @@ const updateWidget = async function (req, res) {
             for (let component of modifiedComponents) {
                 let [compUpdateErr, updateComponent] = await to(Components.findByIdAndUpdate(component._id, { $set: component }));
                 if (compUpdateErr) {
-                    return ReS(res, { message: "Error while updating existing component", error: compUpdateErr }, 422);
+                    return ReE(res, { message: "Error while updating existing component", error: compUpdateErr.message }, 422);
                 }
             }
         }
